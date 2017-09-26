@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<go-plugin id="se.thinkware.se.gocd.dockerPoller" version="1">
+    <about>
+        <name>Docker Poller</name>
+        <version>1.0.0</version>
+        <target-go-version>17.7.0</target-go-version>
+        <description>Docker package poller plugin for Thoughworks Go CD</description>
+        <vendor>
+            <name>Thinkware AB</name>
+            <url>thinkware.se</url>
+        </vendor>
+        <target-os>
+            <value>Linux</value>
+        </target-os>
+    </about>
+</go-plugin>
