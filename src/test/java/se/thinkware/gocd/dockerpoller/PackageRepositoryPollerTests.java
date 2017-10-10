@@ -97,10 +97,15 @@ class PackageRepositoryPollerTests {
     @Test
     void RepositoryNotFoundTest() {
 
-        PackageRepositoryPoller poller = new PackageRepositoryPoller(mockTransport404);
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransport404
+        );
         PackageMaterialProperties repositoryConfiguration = new PackageMaterialProperties();
         PackageMaterialProperty url = new PackageMaterialProperty().withValue("http://xxx/v2/");
         repositoryConfiguration.addPackageMaterialProperty(Constants.DOCKER_REGISTRY_URL, url);
+        PackageMaterialProperty name = new PackageMaterialProperty().withValue("registry/name");
+        repositoryConfiguration.addPackageMaterialProperty(Constants.DOCKER_REGISTRY_NAME, name);
         CheckConnectionResultMessage status = poller.checkConnectionToRepository(repositoryConfiguration);
 
         assertFalse(status.success());
@@ -110,10 +115,15 @@ class PackageRepositoryPollerTests {
     @Test
     void RepositoryMissingHeaderTest() {
 
-        PackageRepositoryPoller poller = new PackageRepositoryPoller(mockTransportMissingHeader);
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransportMissingHeader
+        );
         PackageMaterialProperties repositoryConfiguration = new PackageMaterialProperties();
         PackageMaterialProperty url = new PackageMaterialProperty().withValue("http://xxx/v2/");
         repositoryConfiguration.addPackageMaterialProperty(Constants.DOCKER_REGISTRY_URL, url);
+        PackageMaterialProperty name = new PackageMaterialProperty().withValue("registry/name");
+        repositoryConfiguration.addPackageMaterialProperty(Constants.DOCKER_REGISTRY_NAME, name);
         CheckConnectionResultMessage status = poller.checkConnectionToRepository(repositoryConfiguration);
 
         assertFalse(status.success());
@@ -125,10 +135,14 @@ class PackageRepositoryPollerTests {
     @Test
     void RepositoryFoundTest() {
 
-        PackageRepositoryPoller poller = new PackageRepositoryPoller(mockTransport200);
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransport200);
         PackageMaterialProperties repositoryConfiguration = new PackageMaterialProperties();
         PackageMaterialProperty url = new PackageMaterialProperty().withValue("http://xxx/v2/");
         repositoryConfiguration.addPackageMaterialProperty(Constants.DOCKER_REGISTRY_URL, url);
+        PackageMaterialProperty name = new PackageMaterialProperty().withValue("registry/name");
+        repositoryConfiguration.addPackageMaterialProperty(Constants.DOCKER_REGISTRY_NAME, name);
         CheckConnectionResultMessage status = poller.checkConnectionToRepository(repositoryConfiguration);
 
         assert(status.success());
@@ -138,7 +152,10 @@ class PackageRepositoryPollerTests {
     @Test
     void PackageNotFoundTest() {
 
-        PackageRepositoryPoller poller = new PackageRepositoryPoller(mockTransport404);
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransport404
+        );
 
         PackageMaterialProperties packageConfiguration = new PackageMaterialProperties();
         PackageMaterialProperty image = new PackageMaterialProperty().withValue("my_docker");
@@ -147,6 +164,8 @@ class PackageRepositoryPollerTests {
         PackageMaterialProperties repositoryConfiguration = new PackageMaterialProperties();
         PackageMaterialProperty url = new PackageMaterialProperty().withValue("http://xxx/v2/");
         repositoryConfiguration.addPackageMaterialProperty(Constants.DOCKER_REGISTRY_URL, url);
+        PackageMaterialProperty name = new PackageMaterialProperty().withValue("registry/name");
+        repositoryConfiguration.addPackageMaterialProperty(Constants.DOCKER_REGISTRY_NAME, name);
 
 
         CheckConnectionResultMessage status = poller.checkConnectionToPackage(
@@ -161,7 +180,10 @@ class PackageRepositoryPollerTests {
     @Test
     void PackageFoundTest() {
 
-        PackageRepositoryPoller poller = new PackageRepositoryPoller(mockTransport200);
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransport200
+        );
 
         PackageMaterialProperties packageConfiguration = new PackageMaterialProperties();
         PackageMaterialProperty image = new PackageMaterialProperty().withValue("my_docker");
@@ -184,7 +206,10 @@ class PackageRepositoryPollerTests {
     @Test
     void TagFetcherTest() {
 
-        PackageRepositoryPoller poller = new PackageRepositoryPoller(mockTransportTags);
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransportTags
+        );
 
         GenericUrl url = new GenericUrl("http://xxx/v2/my_docker/tags/list");
 
@@ -197,7 +222,10 @@ class PackageRepositoryPollerTests {
     @Test
     void getLatestTest() {
 
-        PackageRepositoryPoller poller = new PackageRepositoryPoller(mockTransportTags);
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransportTags
+        );
 
         PackageMaterialProperties packageConfiguration = new PackageMaterialProperties();
         PackageMaterialProperty image = new PackageMaterialProperty().withValue("my_docker");
@@ -221,7 +249,10 @@ class PackageRepositoryPollerTests {
     @Test
     void getLatestEndsWith1Test() {
 
-        PackageRepositoryPoller poller = new PackageRepositoryPoller(mockTransportTags);
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransportTags
+        );
 
         PackageMaterialProperties packageConfiguration = new PackageMaterialProperties();
         PackageMaterialProperty image = new PackageMaterialProperty().withValue("my_docker");
@@ -244,13 +275,18 @@ class PackageRepositoryPollerTests {
 
     @Test
     void expandNumsTest() {
-        assertEquals("000123.000001-X", PackageRepositoryPoller.expandNums("123.1-X"));
+        String expected = "000123.000001-X";
+        String actual = PackageRepositoryPoller.expandNums("123.1-X");
+        assertEquals(expected, actual);
     }
 
     @Test
     void getLatestSinceHitTest() {
 
-        PackageRepositoryPoller poller = new PackageRepositoryPoller(mockTransportTags);
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransportTags
+        );
 
         PackageMaterialProperties packageConfiguration = new PackageMaterialProperties();
         PackageMaterialProperty image = new PackageMaterialProperty().withValue("my_docker");
@@ -279,7 +315,10 @@ class PackageRepositoryPollerTests {
     @Test
     void getLatestSinceMissTest() {
 
-        PackageRepositoryPoller poller = new PackageRepositoryPoller(mockTransportTags);
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransportTags
+        );
 
         PackageMaterialProperties packageConfiguration = new PackageMaterialProperties();
         PackageMaterialProperty image = new PackageMaterialProperty().withValue("my_docker");

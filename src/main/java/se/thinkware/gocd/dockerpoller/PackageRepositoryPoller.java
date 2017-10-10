@@ -1,42 +1,54 @@
 package se.thinkware.gocd.dockerpoller;
 
-
-import com.google.api.client.http.*;
-
+import com.google.api.client.http.GenericUrl;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.http.HttpResponse;
+import com.google.api.client.http.HttpRequest;
+import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.thoughtworks.go.plugin.api.logging.Logger;
 import se.thinkware.gocd.dockerpoller.message.CheckConnectionResultMessage;
 import se.thinkware.gocd.dockerpoller.message.PackageMaterialProperties;
 import se.thinkware.gocd.dockerpoller.message.PackageRevisionMessage;
+import se.thinkware.gocd.dockerpoller.message.ValidationResultMessage;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static se.thinkware.gocd.dockerpoller.JsonUtil.fromJsonString;
 
 class PackageRepositoryPoller {
+
+    private static Logger LOGGER = Logger.getLoggerFor(PackageRepositoryPoller.class);
+
+    private PackageRepositoryConfigurationProvider configurationProvider;
 
     private final HttpTransport transport;
 
     public PackageRepositoryPoller(PackageRepositoryConfigurationProvider configurationProvider) {
+        LOGGER.info("Instatiated PackageRepositoryPoller");
+        this.configurationProvider = configurationProvider;
         this.transport = new NetHttpTransport();
     }
 
     // This is used for testing, so that we can mock the HttpTransport
-    public PackageRepositoryPoller(HttpTransport transport) {
-
+    public PackageRepositoryPoller(
+            PackageRepositoryConfigurationProvider configurationProvider,
+            HttpTransport transport
+    ) {
+        this.configurationProvider = configurationProvider;
         this.transport = transport;
     }
 
     private CheckConnectionResultMessage UrlChecker(GenericUrl url, String what) {
+        LOGGER.info(String.format("Checking URL: %s", url.toString()));
         try {
-            HttpRequest request = transport.createRequestFactory().buildRequest("get", url, null);
+            HttpRequest request = transport.createRequestFactory().buildGetRequest(url);
             HttpResponse response = request.execute();
             HttpHeaders headers = response.getHeaders();
             String dockerHeader = "docker-distribution-api-version";
@@ -44,33 +56,43 @@ class PackageRepositoryPoller {
             CheckConnectionResultMessage.STATUS status;
             if (headers.containsKey(dockerHeader)) {
                 if (headers.get(dockerHeader).toString().startsWith("[registry/2.")) {
-                    message = "Docker " + what + " found.";
                     status = CheckConnectionResultMessage.STATUS.SUCCESS;
+                    message = "Docker " + what + " found.";
+                    LOGGER.info(message);
                 } else {
                     status = CheckConnectionResultMessage.STATUS.FAILURE;
                     message = "Unknown value " + headers.get(dockerHeader).toString() + " for header " + dockerHeader;
+                    LOGGER.warn(message);
                 }
             } else {
                 status = CheckConnectionResultMessage.STATUS.FAILURE;
                 message = "Missing header: " + dockerHeader + " found only: " + headers.keySet();
+                LOGGER.warn(message);
             }
             return new CheckConnectionResultMessage(status, Collections.singletonList(message));
         } catch (IOException ex) {
+            String error = "Could not find docker " + what + ". [" + ex.getMessage() + "]";
+            LOGGER.warn(error);
             return new CheckConnectionResultMessage(
                     CheckConnectionResultMessage.STATUS.FAILURE,
-                    Collections.singletonList("Could not find docker " + what + ". [" + ex.getMessage() + "]"));
+                    Collections.singletonList(error));
+        } catch (Exception ex) {
+            LOGGER.warn("Caught unexpected exception");
+            LOGGER.warn(ex.toString());
+            throw ex;
         }
     }
 
     List<String> TagFetcher(GenericUrl url) {
         try {
-            HttpRequest request = transport.createRequestFactory().buildRequest("get", url, null);
+            LOGGER.info(String.format("Fetch tags for %s", url.toString()));
+            HttpRequest request = transport.createRequestFactory().buildGetRequest(url);
             HttpResponse response = request.execute();
-            Gson gson = new GsonBuilder().create();
-            Reader tagListJson = new InputStreamReader(response.getContent());
-            DockerTagsList tagsList = gson.fromJson(tagListJson, DockerTagsList.class);
+            DockerTagsList tagsList = fromJsonString(response.parseAsString(), DockerTagsList.class);
+            LOGGER.info(String.format("Got tags: %s", tagsList.getTags().toString()));
             return tagsList.getTags();
         } catch (IOException ex) {
+            LOGGER.warn("Got no tags!");
             return Collections.emptyList();
         }
     }
@@ -78,6 +100,11 @@ class PackageRepositoryPoller {
     public CheckConnectionResultMessage checkConnectionToRepository(
             PackageMaterialProperties repositoryConfiguration
     ) {
+        ValidationResultMessage validationResultMessage =
+                configurationProvider.validateRepositoryConfiguration(repositoryConfiguration);
+        if (validationResultMessage.failure()) {
+            return new CheckConnectionResultMessage(CheckConnectionResultMessage.STATUS.FAILURE, validationResultMessage.getMessages());
+        }
         String dockerRegistryUrl = repositoryConfiguration.getProperty(Constants.DOCKER_REGISTRY_URL).value();
         return UrlChecker(new GenericUrl(dockerRegistryUrl), "registry");
     }
@@ -89,16 +116,6 @@ class PackageRepositoryPoller {
         String dockerPackageUrl =
                 getDockerPackageUrl(packageConfiguration, repositoryConfiguration);
         return UrlChecker(new GenericUrl(dockerPackageUrl), "image");
-    }
-
-    private List<String> getDockerTags(
-            PackageMaterialProperties packageConfiguration,
-            PackageMaterialProperties repositoryConfiguration
-    ) {
-        String dockerPackageUrl =
-                getDockerPackageUrl(packageConfiguration, repositoryConfiguration);
-        return Collections.singletonList("TODO");
-
     }
 
     private String getDockerPackageUrl(
@@ -137,7 +154,7 @@ class PackageRepositoryPoller {
             PackageMaterialProperties packageConfiguration,
             PackageMaterialProperties repositoryConfiguration
     ) {
-
+        LOGGER.info("getLatestRevision");
         GenericUrl url = new GenericUrl(getDockerPackageUrl(packageConfiguration, repositoryConfiguration));
         List<String> tags = TagFetcher(url);
         String filter = packageConfiguration.getProperty(Constants.DOCKER_TAG_FILTER).value();
@@ -149,6 +166,7 @@ class PackageRepositoryPoller {
         List<Object> matching = tags.stream().filter(pattern.asPredicate()).collect(Collectors.toList());
 
         if (matching.isEmpty()) {
+            LOGGER.info("Found no matching revision.");
             return new PackageRevisionMessage();
         }
 
@@ -157,7 +175,8 @@ class PackageRepositoryPoller {
             latest = biggest(latest, tag.toString());
         }
 
-        return new PackageRevisionMessage(latest,null,null, null,null);
+        LOGGER.info(String.format("Latest revision is: %s", latest));
+        return new PackageRevisionMessage(latest, new Date(), "docker", null,null);
     }
 
     public PackageRevisionMessage getLatestRevisionSince(
@@ -165,10 +184,13 @@ class PackageRepositoryPoller {
             PackageMaterialProperties repositoryConfiguration,
             PackageRevisionMessage previous
     ) {
+        LOGGER.info(String.format("getLatestRevisionSince %s", previous.getRevision()));
         PackageRevisionMessage latest = getLatestRevision(packageConfiguration, repositoryConfiguration);
         if (biggest(previous.getRevision(), latest.getRevision()).equals(latest.getRevision())) {
+            LOGGER.info(String.format("Latest revision is: %s", latest));
             return latest;
         } else {
+            LOGGER.info("Found no matching revision.");
             return new PackageRevisionMessage();
         }
     }

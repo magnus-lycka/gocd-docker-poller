@@ -2,6 +2,7 @@ package se.thinkware.gocd.dockerpoller;
 
 import se.thinkware.gocd.dockerpoller.message.PackageMaterialProperties;
 import se.thinkware.gocd.dockerpoller.message.PackageMaterialProperty;
+import se.thinkware.gocd.dockerpoller.message.ValidationError;
 import se.thinkware.gocd.dockerpoller.message.ValidationResultMessage;
 
 class PackageRepositoryConfigurationProvider {
@@ -13,6 +14,7 @@ class PackageRepositoryConfigurationProvider {
                 new PackageMaterialProperty()
                         .withDisplayName("Docker Registry URL")
                         .withDisplayOrder("0")
+                        .withPartOfIdentity(false)
                         .withRequired(true)
         );
         repositoryConfigurationResponse.addPackageMaterialProperty(
@@ -41,16 +43,51 @@ class PackageRepositoryConfigurationProvider {
                 new PackageMaterialProperty()
                         .withDisplayName("Docker Tag Filter Regular Expression")
                         .withDisplayOrder("1")
+                        .withPartOfIdentity(false)
+                        .withRequired(false)
         );
         return packageConfigurationResponse;
     }
 
     public ValidationResultMessage validateRepositoryConfiguration(PackageMaterialProperties configurationProvidedByUser) {
-        return new ValidationResultMessage();
+
+        ValidationResultMessage validationResultMessage = new ValidationResultMessage();
+        PackageMaterialProperty registryUrl = configurationProvidedByUser.getProperty(Constants.DOCKER_REGISTRY_URL);
+        PackageMaterialProperty registryName = configurationProvidedByUser.getProperty(Constants.DOCKER_REGISTRY_NAME);
+
+        if (registryUrl == null) {
+            validationResultMessage.addError(
+                    ValidationError.create(Constants.DOCKER_REGISTRY_URL, "Docker Registry url not specified")
+            );
+            return validationResultMessage;
+        }
+        if (registryName == null) {
+            validationResultMessage.addError(
+                    ValidationError.create(Constants.DOCKER_REGISTRY_NAME, "Docker Registry name not specified")
+            );
+            return validationResultMessage;
+        }
+        return validationResultMessage;
+
     }
 
     public ValidationResultMessage validatePackageConfiguration(PackageMaterialProperties configurationProvidedByUser) {
-        return new ValidationResultMessage();
+        ValidationResultMessage validationResultMessage = new ValidationResultMessage();
+        PackageMaterialProperty imageConfig = configurationProvidedByUser.getProperty(Constants.DOCKER_IMAGE);
+        if (imageConfig == null) {
+            validationResultMessage.addError(ValidationError.create(Constants.DOCKER_IMAGE, "Docker image not specified"));
+            return validationResultMessage;
+        }
+        String image = imageConfig.value();
+        if (image == null) {
+            validationResultMessage.addError(ValidationError.create(Constants.DOCKER_IMAGE, "Docker image is null"));
+            return validationResultMessage;
+        }
+        if (image.trim().isEmpty()) {
+            validationResultMessage.addError(ValidationError.create(Constants.DOCKER_IMAGE, "Docker image is empty"));
+            return validationResultMessage;
+        }
+        return validationResultMessage;
     }
 
 }

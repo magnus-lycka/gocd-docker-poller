@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<go-plugin id="se.thinkware.se.gocd.dockerPoller" version="1">
+<go-plugin id="docker-registry" version="1">
     <about>
-        <name>Docker Poller</name>
+        <name>dockerpoller</name>
         <version>1.0.0</version>
         <target-go-version>17.7.0</target-go-version>
-        <description>Docker package poller plugin for Thoughworks Go CD</description>
+        <description>Docker package poller plugin for Thoughworks GoCD.</description>
         <vendor>
-            <name>Thinkware AB</name>
-            <url>thinkware.se</url>
+            <name>Magnus Lyckå</name>
+            <url></url>
         </vendor>
         <target-os>
             <value>Linux</value>
