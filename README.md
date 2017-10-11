@@ -5,6 +5,8 @@
 
 This plugin provides docker images in a docker registry as package material in GoCD. It only runs on the GoCD server.
 
+[![Build Status](https://travis-ci.org/magnus-lycka/gocd-docker-poller.svg?branch=master)](https://travis-ci.org/magnus-lycka/gocd-docker-poller)
+
 It polls a docker registry through the `Docker Registry HTTP API V2` to find whether a docker image has changed. When a pipeline with docker package material runs, the GoCD server will populate certain environment variables which can be used in pipeline tasks.
 
 Note that there is a bit of confusion about terminology between GoCD and Docker. Imagine that we have a Docker image you'd pull like this:
