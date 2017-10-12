@@ -43,7 +43,7 @@ class PackageRepositoryConfigurationProvider {
                 new PackageMaterialProperty()
                         .withDisplayName("Docker Tag Filter Regular Expression")
                         .withDisplayOrder("1")
-                        .withPartOfIdentity(false)
+                        .withPartOfIdentity(true)
                         .withRequired(false)
         );
         return packageConfigurationResponse;

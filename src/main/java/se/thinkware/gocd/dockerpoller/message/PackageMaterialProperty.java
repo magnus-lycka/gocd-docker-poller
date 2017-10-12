@@ -14,6 +14,7 @@ public class PackageMaterialProperty {
     @SerializedName("part-of-identity")
     private Boolean partOfIdentity;
 
+    @Expose
     private Boolean required;
 
     @Expose
