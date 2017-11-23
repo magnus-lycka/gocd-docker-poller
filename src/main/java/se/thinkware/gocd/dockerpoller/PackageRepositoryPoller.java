@@ -6,6 +6,9 @@ import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import com.thoughtworks.go.plugin.api.logging.Logger;
 import se.thinkware.gocd.dockerpoller.message.CheckConnectionResultMessage;
 import se.thinkware.gocd.dockerpoller.message.PackageMaterialProperties;
@@ -16,6 +19,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -44,12 +48,39 @@ class PackageRepositoryPoller {
         this.configurationProvider = configurationProvider;
         this.transport = transport;
     }
+    
+    private HttpResponse getUrl(GenericUrl url) throws IOException {
+        HttpRequest request = transport.createRequestFactory().buildGetRequest(url);
+        HttpResponse response = request.execute();
+        String authenticate = response.getHeaders().getAuthenticate();
+        if (authenticate != null) {
+            String tokenUrl = Pattern
+                 .compile("bearer=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE)
+                 .matcher(authenticate).group(1);
+            String tokenResponse = transport
+                .createRequestFactory()
+                .buildGetRequest(new GenericUrl(tokenUrl))
+                .execute()
+                .parseAsString();                
+            Map<String, String> tokenMap = new GsonBuilder().create().fromJson(
+                tokenResponse, 
+                new TypeToken<Map<String, String>>(){}.getType()
+            );
+
+            request = transport.createRequestFactory(req -> 
+            	req.getHeaders().setAuthorization(
+        			"Bearer " + tokenMap.get("token")
+    			)
+        	).buildGetRequest(url);
+            response = request.execute();
+        }
+        return response;
+    }
 
     private CheckConnectionResultMessage UrlChecker(GenericUrl url, String what) {
         LOGGER.info(String.format("Checking URL: %s", url.toString()));
         try {
-            HttpRequest request = transport.createRequestFactory().buildGetRequest(url);
-            HttpResponse response = request.execute();
+            HttpResponse response = getUrl(url);
             HttpHeaders headers = response.getHeaders();
             String dockerHeader = "docker-distribution-api-version";
             String message;
@@ -86,9 +117,8 @@ class PackageRepositoryPoller {
     List<String> TagFetcher(GenericUrl url) {
         try {
             LOGGER.info(String.format("Fetch tags for %s", url.toString()));
-            HttpRequest request = transport.createRequestFactory().buildGetRequest(url);
-            HttpResponse response = request.execute();
-            DockerTagsList tagsList = fromJsonString(response.parseAsString(), DockerTagsList.class);
+            String tagResponse = getUrl(url).parseAsString();          
+            DockerTagsList tagsList = fromJsonString(tagResponse, DockerTagsList.class);
             LOGGER.info(String.format("Got tags: %s", tagsList.getTags().toString()));
             return tagsList.getTags();
         } catch (IOException ex) {

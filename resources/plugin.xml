@@ -9,8 +9,5 @@
             <name>Magnus Lyckå</name>
             <url></url>
         </vendor>
-        <target-os>
-            <value>Linux</value>
-        </target-os>
     </about>
 </go-plugin>
