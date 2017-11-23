@@ -3,6 +3,7 @@ package se.thinkware.gocd.dockerpoller;
 import com.google.api.client.http.GenericUrl;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.HttpResponse;
+import com.google.api.client.http.HttpResponseException;
 import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -51,30 +52,43 @@ class PackageRepositoryPoller {
     
     private HttpResponse getUrl(GenericUrl url) throws IOException {
         HttpRequest request = transport.createRequestFactory().buildGetRequest(url);
+        request.setThrowExceptionOnExecuteError(false);
         HttpResponse response = request.execute();
-        String authenticate = response.getHeaders().getAuthenticate();
-        if (authenticate != null) {
-            String tokenUrl = Pattern
-                 .compile("bearer=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE)
-                 .matcher(authenticate).group(1);
-            String tokenResponse = transport
-                .createRequestFactory()
-                .buildGetRequest(new GenericUrl(tokenUrl))
-                .execute()
-                .parseAsString();                
-            Map<String, String> tokenMap = new GsonBuilder().create().fromJson(
-                tokenResponse, 
-                new TypeToken<Map<String, String>>(){}.getType()
-            );
 
-            request = transport.createRequestFactory(req -> 
-            	req.getHeaders().setAuthorization(
-        			"Bearer " + tokenMap.get("token")
-    			)
-        	).buildGetRequest(url);
-            response = request.execute();
+        if (response.isSuccessStatusCode()) {
+        	return response;
+        } 
+
+        if (response.getStatusCode() == 401) {
+            String authenticate = response.getHeaders().getAuthenticate();
+            if (authenticate != null) {
+                String tokenUrl = Pattern
+                     .compile("bearer=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE)
+                     .matcher(authenticate)
+                     .group(1);
+
+                String tokenResponse = transport
+                    .createRequestFactory()
+                    .buildGetRequest(new GenericUrl(tokenUrl))
+                    .execute()
+                    .parseAsString();                
+
+                Map<String, String> tokenMap = new GsonBuilder().create().fromJson(
+                    tokenResponse, 
+                    new TypeToken<Map<String, String>>(){}.getType()
+                );
+
+                request = transport.createRequestFactory(req -> 
+                    req.getHeaders().setAuthorization(
+                        "Bearer " + tokenMap.get("token")
+                    )
+                ).buildGetRequest(url);
+
+                return request.execute();
+            }
         }
-        return response;
+        
+    	throw new HttpResponseException(response);
     }
 
     private CheckConnectionResultMessage UrlChecker(GenericUrl url, String what) {
