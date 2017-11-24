@@ -55,23 +55,28 @@ class PackageRepositoryPoller {
         request.setThrowExceptionOnExecuteError(false);
         HttpResponse response = request.execute();
 
+        LOGGER.info(String.format("HTTP GET URL: %s %s", url.toString(), response.getStatusCode()));
         if (response.isSuccessStatusCode()) {
-        	return response;
+            return response;
         } 
 
         if (response.getStatusCode() == 401) {
             String authenticate = response.getHeaders().getAuthenticate();
+            LOGGER.info(String.format("WWW-Authenticate: %s", authenticate));
             if (authenticate != null) {
-                String tokenUrl = Pattern
-                     .compile("bearer=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE)
-                     .matcher(authenticate)
-                     .group(1);
+                Matcher matcher = Pattern
+                     .compile("realm=\"([^\"]+)\"", Pattern.CASE_INSENSITIVE)
+                     .matcher(authenticate);
+                
+                matcher.find();                
+                String tokenUrl = matcher.group(1);
+                LOGGER.info(String.format("Token URL: %s", tokenUrl));
 
                 String tokenResponse = transport
                     .createRequestFactory()
                     .buildGetRequest(new GenericUrl(tokenUrl))
                     .execute()
-                    .parseAsString();                
+                    .parseAsString();
 
                 Map<String, String> tokenMap = new GsonBuilder().create().fromJson(
                     tokenResponse, 
