@@ -2,12 +2,12 @@
 <go-plugin id="docker-registry" version="1">
     <about>
         <name>dockerpoller</name>
-        <version>1.2.0-PRE</version>
+        <version>1.2.0</version>
         <target-go-version>17.7.0</target-go-version>
         <description>Docker package poller plugin for Thoughworks GoCD.</description>
         <vendor>
             <name>Magnus Lyckå</name>
-            <url></url>
+            <url>https://github.com/magnus-lycka/gocd-docker-poller</url>
         </vendor>
     </about>
 </go-plugin>
