@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
 import static se.thinkware.gocd.dockerpoller.JsonUtil.fromJsonString;
@@ -210,22 +211,30 @@ class PackageRepositoryPoller {
         if (filter.equals("")) {
             filter = ".*";
         }
-        Pattern pattern = Pattern.compile(filter);
 
-        List<Object> matching = tags.stream().filter(pattern.asPredicate()).collect(Collectors.toList());
+        try {
+            Pattern pattern = Pattern.compile(filter);
 
-        if (matching.isEmpty()) {
-            LOGGER.info("Found no matching revision.");
-            return new PackageRevisionMessage();
+            List<Object> matching = tags.stream().filter(pattern.asPredicate()).collect(Collectors.toList());
+
+            if (matching.isEmpty()) {
+                LOGGER.info("Found no matching revision.");
+                return new PackageRevisionMessage();
+            }
+
+            String latest = "";
+            for (Object tag: matching) {
+                latest = biggest(latest, tag.toString());
+            }
+
+            LOGGER.info(String.format("Latest revision is: %s", latest));
+            return new PackageRevisionMessage(latest, new Date(), "docker", null,null);
+
+        } catch (PatternSyntaxException e) {
+            String message = String.format("Invalid docker tag filter '%s' used for image '%s': %s", filter, url, e.getMessage());
+            LOGGER.error(message);
+            throw new PatternSyntaxException(message, e.getPattern(), e.getIndex());
         }
-
-        String latest = "";
-        for (Object tag: matching) {
-            latest = biggest(latest, tag.toString());
-        }
-
-        LOGGER.info(String.format("Latest revision is: %s", latest));
-        return new PackageRevisionMessage(latest, new Date(), "docker", null,null);
     }
 
     public PackageRevisionMessage getLatestRevisionSince(

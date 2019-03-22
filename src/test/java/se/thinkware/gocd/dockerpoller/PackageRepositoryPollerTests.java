@@ -8,9 +8,6 @@ import com.google.api.client.testing.http.MockLowLevelHttpRequest;
 import com.google.api.client.testing.http.MockLowLevelHttpResponse;
 import com.google.api.client.testing.http.MockHttpTransport;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-
 import org.junit.jupiter.api.Test;
 import se.thinkware.gocd.dockerpoller.message.CheckConnectionResultMessage;
 import se.thinkware.gocd.dockerpoller.message.PackageMaterialProperties;
@@ -21,6 +18,9 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.PatternSyntaxException;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class PackageRepositoryPollerTests {
 
@@ -244,6 +244,42 @@ class PackageRepositoryPollerTests {
         );
 
         assertEquals("1.100", dockerImage.getRevision());
+    }
+
+    @Test
+    void getLatestUsingInvalidFilterTest() {
+
+        PackageRepositoryPoller poller = new PackageRepositoryPoller(
+                new PackageRepositoryConfigurationProvider(),
+                mockTransportTags
+        );
+
+        PackageMaterialProperties packageConfiguration = new PackageMaterialProperties();
+        String dockerImage = "my_docker";
+        PackageMaterialProperty image = new PackageMaterialProperty().withValue(dockerImage);
+        packageConfiguration.addPackageMaterialProperty(Constants.DOCKER_IMAGE, image);
+        String dockerTagFilter = "*.starDotIsAnInvalidFilter";
+        PackageMaterialProperty filter = new PackageMaterialProperty().withValue(dockerTagFilter);
+        packageConfiguration.addPackageMaterialProperty(Constants.DOCKER_TAG_FILTER, filter);
+
+        PackageMaterialProperties repositoryConfiguration = new PackageMaterialProperties();
+        String dockerRegistryUrl = "http://xxx/v2/";
+        PackageMaterialProperty url = new PackageMaterialProperty().withValue(dockerRegistryUrl);
+        repositoryConfiguration.addPackageMaterialProperty(Constants.DOCKER_REGISTRY_URL, url);
+
+
+        Exception thrown = assertThrows(PatternSyntaxException.class, ()->{
+            poller.getLatestRevision(
+                    packageConfiguration,
+                    repositoryConfiguration
+            );
+        });
+
+        String expectedTypeOfPatternSyntaxException = "Dangling meta character '*' near index 0";
+        assertTrue(thrown.getMessage().contains(expectedTypeOfPatternSyntaxException));
+        assertTrue(thrown.getMessage().contains(dockerImage));
+        assertTrue(thrown.getMessage().contains(dockerTagFilter));
+        assertTrue(thrown.getMessage().contains(dockerRegistryUrl));
     }
 
     @Test
